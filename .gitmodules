@@ -1,0 +1,9 @@
+[submodule "data-staging/sources/STEPBible/step"]
+	path = data-staging/sources/STEP-Bible/STEPBible-Data
+	url = https://github.com/STEPBible/step
+[submodule "data-staging/sources/STEPBible/STEPBible-Data"]
+	path = data-staging/sources/STEP-Bible/STEPBible-Data
+	url = https://github.com/STEPBible/STEPBible-Data.git
+[submodule "data-staging/sources/Clear-Bible/macula-hebrew"]
+	path = data-staging/sources/Clear-Bible/macula-hebrew
+	url = https://github.com/Clear-Bible/macula-hebrew.git
