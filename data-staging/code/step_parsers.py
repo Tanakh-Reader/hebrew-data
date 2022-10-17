@@ -1,14 +1,19 @@
-from constants import *
+from constants.paths import PATHS
+from constants.data import STEP_CORPUS
 import pandas as pd
 import csv
+import os
 
 class StepBibleHebrewDataProcessor:
 
-    def __init__(self, corpora_files_path:str, lexicon_file_path:str=None):
+    def __init__(self, 
+        corpora_files_path:str = None,
+        lexicon_file_path:str = None
+    ):
         
         self.lexicon_file_path = lexicon_file_path
         self.corpora_files_path = corpora_files_path
-        self.corpora_files_dict = self.get_corpora_dict()
+        self.corpora_files_dict = self.get_corpora_dict() if corpora_files_path else {}
         self.trailers = ['׃', 'פ', '׀', 'ס', ' פ', '׆', '־', ' ']
         self.dest_path = PATHS.STEP_DATA_DEST_FULL_PATH
 
@@ -26,7 +31,7 @@ class StepBibleHebrewDataProcessor:
         # Assign the files to the references in the dictionary.
         for file in os.listdir(self.corpora_files_path):
 
-            if STEP_CORPORA.CORPORA_PREFIX in file:
+            if STEP_CORPUS.CORPORA_PREFIX in file:
 
                 for ref in corpora_dict.keys():
 
@@ -40,7 +45,7 @@ class StepBibleHebrewDataProcessor:
     # Write all corpora files into a single corpus csv.
     def write_corpora_data_unformatted(self):
 
-        cols_len = len(STEP_CORPORA.CORPORA_OG_HEADER)
+        cols_len = len(STEP_CORPUS.CORPORA_OG_HEADER)
         rows = []   
 
         for ref, file in self.corpora_files_dict.items():
@@ -67,8 +72,8 @@ class StepBibleHebrewDataProcessor:
 
         # Write the data.
         df = pd.DataFrame(rows)
-        df.columns = STEP_CORPORA.CORPORA_OG_HEADER
-        write_file = STEP_CORPORA.WRITE_FILE_UNFORMATTED
+        df.columns = STEP_CORPUS.CORPORA_OG_HEADER
+        write_file = STEP_CORPUS.WRITE_FILE_UNFORMATTED
         save_path = os.path.join(self.dest_path, write_file)
         df.to_csv(save_path, sep=',', encoding='utf-8', index=False)
 
@@ -80,9 +85,9 @@ class StepBibleHebrewDataProcessor:
 
         rows = []   
         books_visited = set()
-        source_file_path = os.path.join(self.dest_path, STEP_CORPORA.WRITE_FILE_UNFORMATTED)
+        source_file_path = os.path.join(self.dest_path, STEP_CORPUS.WRITE_FILE_UNFORMATTED)
         
-        if STEP_CORPORA.WRITE_FILE_UNFORMATTED not in os.listdir(self.dest_path):
+        if STEP_CORPUS.WRITE_FILE_UNFORMATTED not in os.listdir(self.dest_path):
             self.write_corpora_data_unformatted()
 
         with open(source_file_path, 'r') as csv_file:
@@ -132,12 +137,12 @@ class StepBibleHebrewDataProcessor:
 
                         if word in self.trailers:
 
-                            data[STEP_CORPORA.TRAILER_ATTR] += word 
-                            data[STEP_CORPORA.TRAILER_STRONGS_ATTR] = strongs_number
+                            data[STEP_CORPUS.TRAILER_ATTR] += word 
+                            data[STEP_CORPUS.TRAILER_STRONGS_ATTR] = strongs_number
 
                         else:
 
-                            if data.get(STEP_CORPORA.TEXT_ATTR) != None:
+                            if data.get(STEP_CORPUS.TEXT_ATTR) != None:
                                 rows.append(data)
 
                             data = {}
@@ -146,18 +151,18 @@ class StepBibleHebrewDataProcessor:
 
                                 morph = morph_codes[word_count] if len(words) > len(morph_codes) else morph_codes[i]
 
-                                data[STEP_CORPORA.ID_ATTR] = self.create_node_id(row[0], books_visited, word_count)
-                                data[STEP_CORPORA.HEB_REF_ATTR] = row[0]
-                                data[STEP_CORPORA.ENG_REF_ATTR] = row[1]
-                                data[STEP_CORPORA.TEXT_ATTR] = word 
-                                data[STEP_CORPORA.LEX_ATTR] = lex_text 
-                                data[STEP_CORPORA.TRAILER_ATTR] = '' if i != len(words) - 1 else ' '
-                                data[STEP_CORPORA.MORPH_ATTR] = morph
-                                data[STEP_CORPORA.GLOSS_ATTR] = gloss 
-                                data[STEP_CORPORA.SENSE_GLOSS_ATTR] = sense_gloss
-                                data[STEP_CORPORA.STRONGS_ATTR] = strongs_number
-                                data[STEP_CORPORA.TRAILER_STRONGS_ATTR] = None
-                                data[STEP_CORPORA.QERE_ATTR] = self.get_qere_data(csv_rows, row_index+1) if with_qere else ''
+                                data[STEP_CORPUS.ID_ATTR] = self.create_node_id(row[0], books_visited, word_count)
+                                data[STEP_CORPUS.HEB_REF_ATTR] = row[0]
+                                data[STEP_CORPUS.ENG_REF_ATTR] = row[1]
+                                data[STEP_CORPUS.TEXT_ATTR] = word 
+                                data[STEP_CORPUS.LEX_ATTR] = lex_text 
+                                data[STEP_CORPUS.TRAILER_ATTR] = '' if i != len(words) - 1 else ' '
+                                data[STEP_CORPUS.MORPH_ATTR] = morph
+                                data[STEP_CORPUS.GLOSS_ATTR] = gloss 
+                                data[STEP_CORPUS.SENSE_GLOSS_ATTR] = sense_gloss
+                                data[STEP_CORPUS.STRONGS_ATTR] = strongs_number
+                                data[STEP_CORPUS.TRAILER_STRONGS_ATTR] = None
+                                data[STEP_CORPUS.QERE_ATTR] = self.get_qere_data(csv_rows, row_index+1) if with_qere else ''
 
                             except Exception as e: 
                                 print(e, row_index, i, word, row)
@@ -168,7 +173,7 @@ class StepBibleHebrewDataProcessor:
 
         # Write the data.
         df = pd.DataFrame(rows)
-        write_file = STEP_CORPORA.WRITE_FILE_FORMATTED if with_qere else STEP_CORPORA.WRITE_FILE_FORMATTED_WITHOUT_QERE
+        write_file = STEP_CORPUS.WRITE_FILE_FORMATTED if with_qere else STEP_CORPUS.WRITE_FILE_FORMATTED_WITHOUT_QERE
         save_path = os.path.join(self.dest_path, write_file)
         df.to_csv(save_path, sep=',', encoding='utf-8', index=False)
 

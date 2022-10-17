@@ -1,6 +1,7 @@
 import pandas as pd
 import unicodedata 
-from constants import *
+import os
+from constants.paths import PATHS
 
 
 def heb_stripped(word):
@@ -23,12 +24,12 @@ class WordFileParser:
             sep=self.__get_sep(file), 
             na_filter=False,
             encoding='utf-8',
-            usecols=[word_col, id_col]
-            ).astype(str)
+            usecols=[word_col, id_col],
+            dtype=str)
         self.words = self.df[word_col].to_list()
-        self.refs = self.df[id_col].to_list()
+        self.ids = self.df[id_col].to_list()
         self.words_output = []
-        self.refs_output = []
+        self.ids_output = []
         self.cases_output = []
         self.i = 0
         self.crawl_depth = self.og_crawl_depth
@@ -56,9 +57,9 @@ class WordFileParser:
     def ref(self, i:int=None) -> str:
 
         if i:
-            return self.refs[i]
+            return self.ids[i]
 
-        return self.refs[self.i]
+        return self.ids[self.i]
 
 
     def reset_crawl_depth(self):
@@ -69,7 +70,7 @@ class WordFileParser:
     def update_output_lists(self, values:list):
         
         self.words_output.append(values[0])
-        self.refs_output.append(values[1])
+        self.ids_output.append(values[1])
         self.cases_output.append(values[2])
 
 
@@ -189,19 +190,28 @@ class FileComparisons:
                 wfp2.reset_crawl_depth()
 
             if wfp1.i % 50000 < 1:
-                print(wfp1.i, wfp1.word(), wfp2.i, wfp2.word())
+                print(wfp1.i, " complete.")
 
         table = {
-            f"{wfp1.name}Ref": wfp1.refs_output,
+            f"{wfp1.name}Id": wfp1.ids_output,
             f"{wfp1.name}Text": wfp1.words_output,
             f"{wfp2.name}Text": wfp2.words_output,
-            f"{wfp2.name}Ref": wfp2.refs_output,
+            f"{wfp2.name}Id": wfp2.ids_output,
             "code": wfp2.cases_output,
         }
 
         write_file = f"{wfp1.name}-to-{wfp2.name}-comparison.csv"
         save_path = os.path.join(self.dest_path, write_file)
-        df = pd.DataFrame(table).astype(str)
-        df.to_csv(write_file, encoding='utf-8', index=False)
+        df = pd.DataFrame(table, dtype=str)
+        df.to_csv(save_path, encoding='utf-8', index=False)
 
         return save_path
+
+# from constants.data import STEP_CORPUS
+# step_wfp = WordFileParser(
+#     file=os.path.join(PATHS.STEP_DATA_DEST_FULL_PATH, STEP_CORPUS.WRITE_FILE_FORMATTED), 
+#     word_col=STEP_CORPUS.TEXT_ATTR, 
+#     id_col=STEP_CORPUS.ID_ATTR, 
+#     name='step')
+
+# print(step_wfp.ids[0:3])
