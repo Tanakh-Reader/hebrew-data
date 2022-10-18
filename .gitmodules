@@ -7,3 +7,6 @@
 [submodule "data-staging/sources/Clear-Bible/macula-hebrew"]
 	path = data-staging/sources/Clear-Bible/macula-hebrew
 	url = https://github.com/Clear-Bible/macula-hebrew.git
+[submodule "data-staging/sources/Eliran-Wong/OpenHebrewBible"]
+	path = data-staging/sources/Eliran-Wong/OpenHebrewBible
+	url = https://github.com/eliranwong/OpenHebrewBible.git
