@@ -1,17 +1,13 @@
 from constants.paths import PATHS
-from constants.data import STEP_CORPUS
+from constants.data import STEP_CORPUS, STEP_TBESH
 import pandas as pd
 import csv
 import os
 
-class StepBibleHebrewDataProcessor:
+class StepBibleCorpusProcessor:
 
-    def __init__(self, 
-        corpora_files_path:str = None,
-        lexicon_file_path:str = None
-    ):
+    def __init__(self, corpora_files_path:str = None):
         
-        self.lexicon_file_path = lexicon_file_path
         self.corpora_files_path = corpora_files_path
         self.corpora_files_dict = self.get_corpora_dict() if corpora_files_path else {}
         self.trailers = ['׃', 'פ', '׀', 'ס', ' פ', '׆', '־', ' ']
@@ -31,7 +27,7 @@ class StepBibleHebrewDataProcessor:
         # Assign the files to the references in the dictionary.
         for file in os.listdir(self.corpora_files_path):
 
-            if STEP_CORPUS.CORPORA_PREFIX in file:
+            if STEP_CORPUS.THOT_FILES_PREFIX in file:
 
                 for ref in corpora_dict.keys():
 
@@ -45,7 +41,7 @@ class StepBibleHebrewDataProcessor:
     # Write all corpora files into a single corpus csv.
     def write_corpora_data_unformatted(self):
 
-        cols_len = len(STEP_CORPUS.CORPORA_OG_HEADER)
+        cols_len = len(STEP_CORPUS.THOT_OG_HEADER)
         rows = []   
 
         for ref, file in self.corpora_files_dict.items():
@@ -71,8 +67,8 @@ class StepBibleHebrewDataProcessor:
             print('Complete: ' + file)
 
         # Write the data.
-        df = pd.DataFrame(rows)
-        df.columns = STEP_CORPUS.CORPORA_OG_HEADER
+        df = pd.DataFrame(rows, dtype=str)
+        df.columns = STEP_CORPUS.THOT_OG_HEADER
         write_file = STEP_CORPUS.WRITE_FILE_UNFORMATTED
         save_path = os.path.join(self.dest_path, write_file)
         df.to_csv(save_path, sep=',', encoding='utf-8', index=False)
@@ -172,7 +168,7 @@ class StepBibleHebrewDataProcessor:
                     rows.append(data)
 
         # Write the data.
-        df = pd.DataFrame(rows)
+        df = pd.DataFrame(rows, dtype=str)
         write_file = STEP_CORPUS.WRITE_FILE_FORMATTED if with_qere else STEP_CORPUS.WRITE_FILE_FORMATTED_WITHOUT_QERE
         save_path = os.path.join(self.dest_path, write_file)
         df.to_csv(save_path, sep=',', encoding='utf-8', index=False)
@@ -233,3 +229,79 @@ class StepBibleHebrewDataProcessor:
             sense_gloss = sense_gloss.strip('§')
 
         return sense_gloss
+
+
+class StepBibleLexiconProcessor:
+
+    dest_path = PATHS.STEP_DATA_DEST_FULL_PATH
+
+    def write_TBESH_data_unformatted(self, source_dir:str=PATHS.STEP_BIBLE_SOURCE_DATA_FULL_PATH):
+
+        source_file = set(f for f in os.listdir(source_dir) if STEP_TBESH.TBESH_FILE_PREFIX in f).pop()
+        source_file_path = os.path.join(source_dir, source_file)
+
+        cols_len = len(STEP_TBESH.TBESH_OG_HEADER)
+        rows = []
+        at_data = False
+        
+        with open(source_file_path) as f:
+
+            lines = [line.rstrip('\n') for line in f]
+            for line_index, line in enumerate(lines):
+
+                row = line.split('\t')
+                row.pop()
+
+                # E.g., 'H0002	אַב	av	A:N-M	father	1) father<br>'
+                if len(row) == cols_len and row[0] == 'H0001':
+                    at_data = True
+
+                if at_data and len(row) == cols_len:
+                    rows.append(row)
+
+        # Write the data.
+        df = pd.DataFrame(rows, dtype=str)
+        df.columns = STEP_TBESH.TBESH_OG_HEADER
+        write_file = STEP_TBESH.WRITE_FILE_UNFORMATTED
+        save_path = os.path.join(self.dest_path, write_file)
+        df.to_csv(save_path, sep='\t', encoding='utf-8', index=False)
+
+        return save_path
+
+
+    def write_TBESH_data_formatted(self):
+
+        rows = []   
+        source_file_path = os.path.join(self.dest_path, STEP_TBESH.WRITE_FILE_UNFORMATTED)
+        
+        if STEP_TBESH.WRITE_FILE_UNFORMATTED not in os.listdir(self.dest_path):
+            self.write_TBESH_data_unformatted()
+
+        with open(source_file_path, 'r') as csv_file:
+            
+            csv_rows = list( csv.reader(csv_file, delimiter='\t') )            
+
+            for row_index, row in enumerate(csv_rows[1:]):
+
+                data = {}                    
+
+                try:
+                    data[STEP_TBESH.STRONGS_ATTR] = row[0]
+                    data[STEP_TBESH.LEX_ATTR] = row[1] 
+                    data[STEP_TBESH.TRANSLITERATION_ATTR] = row[2]
+                    data[STEP_TBESH.MORPH_ATTR] = row[3]
+                    data[STEP_TBESH.GLOSS_ATTR] = row[4]
+                    data[STEP_TBESH.MEANING_ATTR] = row[5]
+
+                except Exception as e: 
+                    print(e, row_index, row)
+
+                rows.append(data)
+
+        # Write the data.
+        df = pd.DataFrame(rows, dtype=str)
+        write_file = STEP_TBESH.WRITE_FILE_FORMATTED
+        save_path = os.path.join(self.dest_path, write_file)
+        df.to_csv(save_path, sep='\t', encoding='utf-8', index=False)
+
+        return save_path

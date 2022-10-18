@@ -3,8 +3,8 @@ import os
 
 class STEP_CORPUS:
 
-    CORPORA_PREFIX = 'TOTHT'
-    CORPORA_OG_HEADER = ['Ref in Heb', 'Eng ref', 'Pointed', 'Accented', 'Morphology', 'Extended Strongs']
+    THOT_FILES_PREFIX = 'TOTHT'
+    THOT_OG_HEADER = ['Ref in Heb', 'Eng ref', 'Pointed', 'Accented', 'Morphology', 'Extended Strongs']
 
     ID_ATTR = 'id'
     HEB_REF_ATTR = 'hebrewRef'
@@ -19,7 +19,7 @@ class STEP_CORPUS:
     TRAILER_STRONGS_ATTR = 'trailerStrongs'
     QERE_ATTR = 'qereData'
 
-    CORPORA_HEADER = [
+    THOT_COMBINED_HEADER = [
         ID_ATTR,
         HEB_REF_ATTR, 
         ENG_REF_ATTR, 
@@ -39,6 +39,22 @@ class STEP_CORPUS:
     WRITE_FILE_FORMATTED = 'translators-hebrew-OT.csv'
 
 
+class STEP_TBESH:
+
+    TBESH_FILE_PREFIX = 'TBESH'
+    TBESH_OG_HEADER = ['EStrong#', 'Hebrew', 'Transliteration', 'Morph', 'Gloss', 'Meaning']
+
+    STRONGS_ATTR = 'strongs'
+    LEX_ATTR = 'lexText'
+    TRANSLITERATION_ATTR = 'transliteration'
+    MORPH_ATTR ='morph'
+    GLOSS_ATTR = 'gloss'
+    MEANING_ATTR = 'definition'
+
+    WRITE_FILE_UNFORMATTED = 'TBESH-unformatted.tsv'
+    WRITE_FILE_FORMATTED = 'TBESH.tsv'
+    
+
 class CLEAR_CORPUS:
 
     HEBREW_TSV_FILE = 'macula-hebrew.tsv'
@@ -49,4 +65,13 @@ class CLEAR_CORPUS:
     TEXT_ATTR = 'text'
 
     WRITE_FILE_UNFORMATTED = 'macula-hebrew-unformatted.tsv'
+    WRITE_FILE_FORMATTED = 'macula-hebrew.tsv'
+
+
+class OHB_CORPUS:
+
+    HEBREW_CSV_FILE = 'BHSA-with-extended-features.csv.zip'
+    HEBREW_CSV_SOURCE_PATH = os.path.join(HEBREW_CSV_FILE)
+
+    WRITE_FILE_UNFORMATTED = 'BHSA-with-extended-features-unformatted.csv'
     WRITE_FILE_FORMATTED = 'macula-hebrew.tsv'
