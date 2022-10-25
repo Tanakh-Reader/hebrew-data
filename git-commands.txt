@@ -1,4 +1,5 @@
 https://git-lfs.github.com/
 
 git lfs track "*.json" "*.csv" "*.tsv" "*.db" "*.sqlite"
-
+git lfs pull
+git submodule update --recursive

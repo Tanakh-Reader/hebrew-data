@@ -6,7 +6,7 @@ import os
 
 class StepBibleCorpusProcessor:
 
-    def __init__(self, corpora_files_path:str = None):
+    def __init__(self, corpora_files_path:str = PATHS.STEP_BIBLE_SOURCE_DATA_FULL_PATH):
         
         self.corpora_files_path = corpora_files_path
         self.corpora_files_dict = self.get_corpora_dict() if corpora_files_path else {}
@@ -43,10 +43,14 @@ class StepBibleCorpusProcessor:
 
         cols_len = len(STEP_CORPUS.THOT_OG_HEADER)
         rows = []   
-
+    
         for ref, file in self.corpora_files_dict.items():
 
             file_path = os.path.join(self.corpora_files_path, file)
+
+            if not os.path.exists(self.corpora_files_path):
+                raise Exception(f"{file_path} is not a valid path for {ref}")
+
             # Track when we've arrived at the Hebrew OT content in the file. 
             at_data = False
         
@@ -71,7 +75,7 @@ class StepBibleCorpusProcessor:
         df.columns = STEP_CORPUS.THOT_OG_HEADER
         write_file = STEP_CORPUS.WRITE_FILE_UNFORMATTED
         save_path = os.path.join(self.dest_path, write_file)
-        df.to_csv(save_path, sep=',', encoding='utf-8', index=False)
+        df.to_csv(save_path, sep='\t', encoding='utf-8', index=False)
 
         return save_path
 
@@ -88,7 +92,7 @@ class StepBibleCorpusProcessor:
 
         with open(source_file_path, 'r') as csv_file:
             
-            csv_rows = list( csv.reader(csv_file) )            
+            csv_rows = list( csv.reader(csv_file, delimiter='\t') )            
 
             for row_index, row in enumerate(csv_rows[1:]):
 
@@ -171,7 +175,7 @@ class StepBibleCorpusProcessor:
         df = pd.DataFrame(rows, dtype=str)
         write_file = STEP_CORPUS.WRITE_FILE_FORMATTED if with_qere else STEP_CORPUS.WRITE_FILE_FORMATTED_WITHOUT_QERE
         save_path = os.path.join(self.dest_path, write_file)
-        df.to_csv(save_path, sep=',', encoding='utf-8', index=False)
+        df.to_csv(save_path, sep='\t', encoding='utf-8', index=False)
 
         return save_path
 

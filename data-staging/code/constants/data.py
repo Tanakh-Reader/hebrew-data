@@ -34,9 +34,9 @@ class STEP_CORPUS:
         QERE_ATTR
     ]
 
-    WRITE_FILE_UNFORMATTED = 'translators-hebrew-OT-unformatted.csv'
-    WRITE_FILE_FORMATTED_WITHOUT_QERE = 'translators-hebrew-OT-no-qere.csv'
-    WRITE_FILE_FORMATTED = 'translators-hebrew-OT.csv'
+    WRITE_FILE_UNFORMATTED = 'translators-hebrew-OT-unformatted.tsv'
+    WRITE_FILE_FORMATTED_WITHOUT_QERE = 'translators-hebrew-OT-no-qere.tsv'
+    WRITE_FILE_FORMATTED = 'translators-hebrew-OT.tsv'
 
 
 class STEP_TBESH:
@@ -70,8 +70,7 @@ class CLEAR_CORPUS:
 
 class OHB_CORPUS:
 
-    HEBREW_CSV_FILE = 'BHSA-with-extended-features.csv.zip'
-    HEBREW_CSV_SOURCE_PATH = os.path.join(HEBREW_CSV_FILE)
+    BHSA_EXTENDED_FILE = 'BHSA-with-extended-features.csv.zip'
 
-    WRITE_FILE_UNFORMATTED = 'BHSA-with-extended-features-unformatted.csv'
-    WRITE_FILE_FORMATTED = 'macula-hebrew.tsv'
+    WRITE_FILE_UNFORMATTED = 'BHSA-with-extended-features-unformatted.tsv'
+    WRITE_FILE_FORMATTED = 'BHSA-with-extended-features.tsv'

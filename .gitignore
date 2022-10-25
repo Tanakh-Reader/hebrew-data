@@ -2,3 +2,5 @@ data_files/
 firebase-credentials.json
 keys.py
 data-staging/data/Eliran-Wong/BHSA-with-extended-features.csv
+torah-mam.json
+final-app-data/firebase/credentials.py
