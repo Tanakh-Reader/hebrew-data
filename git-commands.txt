@@ -2,4 +2,7 @@ https://git-lfs.github.com/
 
 git lfs track "*.json" "*.csv" "*.tsv" "*.db" "*.sqlite"
 git lfs pull
-git submodule update --recursive
+
+git submodule update -f --remote <specific path to submodule>
+git submodule update -f --recursive --remote
+git submodule update --recursive --init # the first time.

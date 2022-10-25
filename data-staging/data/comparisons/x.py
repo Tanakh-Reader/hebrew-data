@@ -1,15 +1,16 @@
 import csv
 
 items = {}
-file = '/Users/sethhowell/Desktop/Hebrew-Literacy-App/hebrew-data/data-staging/data/Clear-Bible/macula-hebrew-unformatted.tsv'
+file = '/Users/sethhowell/Desktop/Hebrew-Literacy-App/hebrew-data/data-staging/sources/Clear-Bible/macula-hebrew/TSV/macula-hebrew.tsv'
 with open(file, 'r') as csvfile:
     datareader = csv.reader(csvfile, delimiter="\t")
     for row in datareader:
         if row[0].endswith('ה'):
-            text = row[3] 
-            if text not in items:
-                items[text] = 1
+            translit = row[4] 
+            if translit not in items:
+                items[translit] = [row[3]]
             else:
-                items[text] = items[text] + 1
+                if row[3] != '':
+                    items[translit].append(row[3])
 
 print(items)
