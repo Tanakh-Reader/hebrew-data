@@ -65,6 +65,7 @@ class CLEAR_CORPUS:
     TEXT_ATTR = 'text'
 
     WRITE_FILE_UNFORMATTED = 'macula-hebrew-unformatted.tsv'
+    WRITE_FILE_ALIGNMENT = 'macula-hebrew-for-alignment.tsv'
     WRITE_FILE_FORMATTED = 'macula-hebrew.tsv'
 
 
@@ -74,3 +75,28 @@ class OHB_CORPUS:
 
     WRITE_FILE_UNFORMATTED = 'BHSA-with-extended-features-unformatted.tsv'
     WRITE_FILE_FORMATTED = 'BHSA-with-extended-features.tsv'
+
+
+class ETCBC_CORPUS:
+
+    ID_ATTR = 'id'
+    TEXT_ATTR = 'text'
+    PRS_ATTR = 'prs'
+    TRAILER_ATTR = 'trailer'
+    BOOK_ATTR = 'book'
+    CHAPTER_ATTR = 'chapter'
+    VERSE_ATTR = 'verse'
+
+    HEADER = [
+        ID_ATTR,
+        TEXT_ATTR,
+        PRS_ATTR,
+        # TRAILER_ATTR,
+        BOOK_ATTR,
+        CHAPTER_ATTR,
+        VERSE_ATTR
+    ]
+
+    WRITE_FILE_UNFORMATTED = 'BHSA-words-unformatted.tsv'
+    WRITE_FILE_FORMATTED = 'BHSA-words.tsv'
+    

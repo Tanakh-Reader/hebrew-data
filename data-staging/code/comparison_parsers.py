@@ -1,100 +1,122 @@
 import pandas as pd
-import unicodedata 
+import unicodedata
 import os
 import json
 from constants.paths import PATHS
 
+# Normalizes text input into its consonantal form.
+# E.g., ἡμῖν becomes ημιν.
+def text_normalized(word):
 
-def heb_stripped(word):
+    normalized = unicodedata.normalize("NFKD", word)
 
-    normalized = unicodedata.normalize('NFKD', word)
+    return "".join([c for c in normalized if not unicodedata.combining(c)])
 
-    return ''.join([c for c in normalized if not unicodedata.combining(c)])
 
 # Note that some of cases 2-4 are Qere vs Ketiv related.
-DIFF_CASES_DEF = {
-    0: 'Identical pointed text', 
-    1: 'Identical consonantal text, different markings',
-    2: 'Likely the same base word, different affix parsing, aligned (e.g., "עַמּוּדָ֣י" + "ו" vs "עַמְדּ" + "וּ") or misaligned (e.g., "אֲ֝דֹנָ֗" + "י" vs "אֲ֝דֹנָ֗י")', 
-    3: 'Likely a missing affix node (e.g., "הָ" + "עֲבָרִ֖ים" vs "הָעֲבָרִ֖ים"), or different word (e.g., "בַּ" vs "כַּ"', 
-    4: 'Likely missing node for implied article (e.g., "NA" vs "" for implied "ה" in "בַּֽ") or for suffix (e.g., "NA" vs "י" for "אֲ֝דֹנָ֗י")'
-}
 # Note, cases like (2) "אֲ֝דֹנָ֗" vs "אֲ֝דֹנָ֗י" are often followed by (4) "י" vs "NA"
+DIFF_CASES_DEF = {
+    0: "Identical pointed text",
+    1: "Identical consonantal text, different markings",
+    2: 'Likely the same base word, different affix parsing, aligned (e.g., "עַמּוּדָ֣י" + "ו" vs "עַמְדּ" + "וּ") or misaligned (e.g., "אֲ֝דֹנָ֗" + "י" vs "אֲ֝דֹנָ֗י")',
+    3: 'Likely a missing affix node (e.g., "הָ" + "עֲבָרִ֖ים" vs "הָעֲבָרִ֖ים"), or different word (e.g., "בַּ" vs "כַּ"',
+    4: 'Likely missing node for implied article (e.g., "NA" vs "" for implied "ה" in "בַּֽ") or for suffix (e.g., "NA" vs "י" for "אֲ֝דֹנָ֗י")',
+}
+
+CRAWL_DEPTH = 1
+CRAWL_ITERATIONS = 3
+
+
+# ************************************************************************************************
+
 
 class WordFileParser:
 
-    og_crawl_depth = 1
+    og_crawl_depth: int = CRAWL_DEPTH
 
-    def __init__(self, file:str, word_col:str, id_col:str, name:str):
+    def __init__(self, file: str, name: str, word_col: str, id_col: str):
+
+        self.name: str = name
 
         self.df = pd.read_csv(
-            file, 
-            sep=self.__get_sep(file), 
+            file,
+            sep=self.get_sep(file),
             na_filter=False,
-            encoding='utf-8',
+            encoding="utf-8",
             usecols=[word_col, id_col],
-            dtype=str)
-        self.words = self.df[word_col].to_list()
-        self.ids = self.df[id_col].to_list()
-        self.words_output = []
-        self.ids_output = []
-        self.cases_output = []
-        self.i = 0
-        self.crawl_depth = self.og_crawl_depth
-        self.length = len(self.words)
-        self.name = name
+            dtype=str,
+        )
+
+        self.words: list = self.df[word_col].to_list()
+        self.ids: list = self.df[id_col].to_list()
+
+        self.reset_values()
 
 
-    def __get_sep(self, file:str) -> str:
+    def reset_values(self):
 
-        if file.endswith('.csv'):
-            return ','
-        elif file.endswith('.tsv'):
-            return '\t'
-        # TODO raise error
+        self.words_output: list = []
+        self.ids_output: list = []
+        self.cases_output: list = []
 
+        self.i: int = 0
+        self.crawl_depth: int = self.og_crawl_depth
+        self.length: int = len(self.words)
 
-    def word(self, i:int=None) -> str:
+    # Get the separator used for the file.
+    def get_sep(self, file: str) -> str:
+
+        if file.endswith(".csv"):
+            return ","
+        elif file.endswith(".tsv"):
+            return "\t"
+        else:
+            raise Exception("Unknown file format. Accepts: .csv, .tsv")
+
+    # Get the word text for a given index.
+    # Returns the word at the current instance index if none provided.
+    def word(self, i: int = None) -> str:
 
         if i:
             return self.words[i]
 
         return self.words[self.i]
 
-
-    def ref(self, i:int=None) -> str:
+    # Get the ref text for a given index.
+    # Returns the reference at the current instance index if none provided.
+    def id(self, i: int = None) -> str:
 
         if i:
             return self.ids[i]
 
         return self.ids[self.i]
 
-
-    def reset_crawl_depth(self):
+    # Reset the crawl depth to its original value.
+    def reset_crawl_depth(self) -> None:
 
         self.crawl_depth = self.og_crawl_depth
 
+    # Update the output lists.
+    def update_output_lists(self, values: list) -> None:
 
-    def update_output_lists(self, values:list):
-        
         self.words_output.append(values[0])
         self.ids_output.append(values[1])
         self.cases_output.append(values[2])
 
+    # Compare the word text in the current WFP instance to that of another.
+    def word_comparison(self, other_wfp: "WordFileParser", new_index: int = 0) -> int:
 
-    def word_comparison(self, other_wfp:'WordFileParser', new_index:int=0) -> int:
-        
-        other_index = max(other_wfp.i, new_index)
-        word_a = self.word()
-        word_b = other_wfp.word(other_index)
+        other_index: int = max(other_wfp.i, new_index)
+        word_a: str = self.word()
+        word_b: str = other_wfp.word(other_index)
 
         if word_a == word_b:
             return 0
 
         else:
 
-            word_a_cons = heb_stripped(word_a)
-            word_b_cons = heb_stripped(word_b)
+            word_a_cons = text_normalized(word_a)
+            word_b_cons = text_normalized(word_b)
 
             if word_a_cons == word_b_cons:
                 return 1
@@ -102,105 +124,240 @@ class WordFileParser:
             elif 0 in [len(word_a_cons), len(word_b_cons)]:
                 return 4
 
-            elif len(word_a_cons) > 1 and len(word_b_cons) > 1 and word_a_cons[0] == word_b_cons[0]:
+            elif (
+                len(word_a_cons) > 1
+                and len(word_b_cons) > 1
+                and word_a_cons[0] == word_b_cons[0]
+            ):
 
-                if word_a_cons[-1] == word_b_cons[-1] or len(word_a_cons) == len(word_b_cons):
+                if word_a_cons[-1] == word_b_cons[-1] or len(word_a_cons) == len(
+                    word_b_cons
+                ):
                     return 1
-                
+
                 else:
                     return 2
 
-            elif self.i + 1 < self.length and other_wfp.i + 1 < other_wfp.length \
-            and heb_stripped(self.word(self.i+1)) == heb_stripped(other_wfp.word(other_index+1)):
+            elif (
+                self.i + 1 < self.length
+                and other_wfp.i + 1 < other_wfp.length
+                and text_normalized(self.word(self.i + 1))
+                == text_normalized(other_wfp.word(other_index + 1))
+            ):
                 return 3
 
             else:
                 return 4
 
+    # Traverse the index of the current WFP and another until a matching word is found.
+    # Returns False if the depth is exceeded without finding a matching word.
+    def crawl(self, other_wfp: "WordFileParser", try_again: bool=False) -> bool:
 
-    def crawl(self, other_wfp:'WordFileParser', again=False):
-        
-        depth = 0
-        runner_index = other_wfp.i + 1
+        depth: int = 0
+        runner_index: int = other_wfp.i + 1
 
         while depth < self.crawl_depth and runner_index < other_wfp.length:
 
-            comp = self.word_comparison(other_wfp, new_index=runner_index)
+            comparison: int = self.word_comparison(other_wfp, new_index=runner_index)
 
-            if comp == 0 or (again and comp in [1,2,3]):
-                self.update_comparisons(other_wfp, comp, runner_index)
+            if comparison == 0 or (try_again and comparison in [1, 2, 3]):
+                self.update_comparisons(other_wfp, comparison, runner_index)
                 return True
-                
+
             runner_index += 1
             depth += 1
-        
+
         return False
 
-            
-    def update_comparisons(self, other_wfp:'WordFileParser', comp:int, new_index:int=0):
+    def update_comparisons(
+        self, other_wfp: "WordFileParser", comp: int, new_index: int = 0
+    ) -> bool:
 
         while other_wfp.i < new_index:
-            other_wfp.update_output_lists([other_wfp.word(), other_wfp.ref(), 4])
-            self.update_output_lists(['NA', self.ref(), 4])
+            other_wfp.update_output_lists([other_wfp.word(), other_wfp.id(), 4])
+            self.update_output_lists(["NA", self.id(), 4])
             other_wfp.i += 1
-            
+
         if comp in range(4):
 
-            other_wfp.update_output_lists([other_wfp.word(), other_wfp.ref(), comp])
-            self.update_output_lists([self.word(), self.ref(), comp])
+            other_wfp.update_output_lists([other_wfp.word(), other_wfp.id(), comp])
+            self.update_output_lists([self.word(), self.id(), comp])
             self.i += 1
             other_wfp.i += 1
 
             return True
-        
+
         else:
-            return None
+            return False
 
+    def add_row(self, other_wfp: "WordFileParser") -> None:
 
-    def add_row(self, other_wfp:'WordFileParser'):
-        
-        other_wfp.update_output_lists([other_wfp.word(), other_wfp.ref(), 5])
-        self.update_output_lists([self.word(), self.ref(), 5])
+        other_wfp.update_output_lists([other_wfp.word(), other_wfp.id(), 5])
+        self.update_output_lists([self.word(), self.id(), 5])
         self.i += 1
         other_wfp.i += 1
 
-    
+
+
+
+# ************************************************************************************************
+
+# Uses sections like book, chapter, and verse.
+class WordFileSectionalParser(WordFileParser):
+
+    og_crawl_depth: int = CRAWL_DEPTH
+
+    def __init__(self, file: str, name: str, word_col: str, id_col: str, book_col: str=None, chapter_col: str=None, verse_col: str=None):
+
+        self.name: str = name
+
+        usecols = [col for col in [word_col, id_col, book_col, chapter_col, verse_col] if col]
+        self.df = pd.read_csv(
+            file,
+            sep=self.get_sep(file),
+            na_filter=False,
+            encoding="utf-8",
+            usecols=usecols,
+            dtype=str,
+        )
+
+        self.words: list = self.df[word_col].to_list()
+        self.ids: list = self.df[id_col].to_list()
+        self.books: list = self.df[book_col].to_list() if book_col else None
+        self.chapters: list = self.df[chapter_col].to_list() if chapter_col else None
+        self.verses: list = self.df[verse_col].to_list() if verse_col else None
+
+        self.corpus_dict = {} # {book} -> {chapter} -> {verse} -> [(id, word)]
+        self.__load_corpus_dict()
+
+        self.words_output: list = []
+        self.ids_output: list = []
+        self.cases_output: list = []
+
+        self.i: int = 0
+        self.crawl_depth: int = self.og_crawl_depth
+        self.length: int = 0
+
+    # TODO add logic for variability in sections used. B
+    def __load_corpus_dict(self):
+
+        self.df = self.df.reset_index() 
+
+        for i, word in enumerate(self.words):
+
+            id: str = self.ids[i]
+            book: str = self.books[i]
+            chapter: str = self.chapters[i]
+            verse: str = self.verses[i]
+
+            if book in self.corpus_dict:
+                
+                if chapter in self.corpus_dict[book]:
+                
+                    if verse in self.corpus_dict[book][chapter]:
+                        self.corpus_dict[book][chapter][verse].append((id, word))
+
+                    else:
+                        self.corpus_dict[book][chapter][verse] = [(id, word)]
+
+                else:
+                    self.corpus_dict[book][chapter] = {verse: [(id, word)]}
+            
+            else:
+                self.corpus_dict[book] = {chapter: {verse: [(id, word)]}}
+
+        # with open(self.name + '-dict.json', 'w', encoding="utf-8") as jsonfile:
+        #     json.dump(self.corpus_dict, jsonfile, ensure_ascii=False, indent=4)
+        
+    # Update the index and words to be content of current verse. 
+    def set_current_verse(self, book: str, ch: str, vs: str):
+        self.i = 0
+        try:
+            self.words = self.corpus_dict[book][ch][vs]
+        except Exception as e:
+            raise Exception(self.name, book, ch, vs, self.words)
+        self.length = len(self.words)
+
+    # Get the word text for a given index.
+    # Returns the word at the current instance index if none provided.
+    def word(self, i: int = None) -> str:
+
+        if i:
+            return self.words[i][1]
+
+        return self.words[self.i][1]
+
+    # Get the ref text for a given index.
+    # Returns the reference at the current instance index if none provided.
+    def id(self, i: int = None) -> str:
+
+        if i:
+            return self.words[i][0]
+
+        return self.words[self.i][0]
+
+
+
+# ************************************************************************************************
+
+
 class FileComparisons:
 
-    dest_path = PATHS.HEBREW_DATA_COMPARISONS_FULL_PATH
+    dest_path: str = PATHS.HEBREW_DATA_COMPARISONS_FULL_PATH
 
-    def get_WFP_comparisons(self, wfp1:WordFileParser, wfp2:WordFileParser):
+    def __get_comparisons(self, wfp1: WordFileParser, wfp2: WordFileParser) -> None:
         
         while wfp1.i < wfp1.length and wfp2.i < wfp2.length:
-            
-            comp = wfp1.word_comparison(wfp2)
-            
-            if not wfp1.update_comparisons(wfp2, comp):
 
-                while wfp1.crawl_depth <= 3:
-                    if wfp1.crawl(wfp2):
-                        break
-                    elif wfp2.crawl(wfp1):
-                        break
-                    elif wfp1.crawl(wfp2, again=True):
-                        break
-                    elif wfp2.crawl(wfp1, again=True):
-                        break
-                    wfp1.crawl_depth += 1
-                    wfp2.crawl_depth += 1
-                
-                else:
-                    wfp1.add_row(wfp2)
-                    # print("ERROR", wfp1.crawl_dist, wfp1.i, wfp1.word(), wfp2.i, wfp2.word())
-                    # return table
+            try:
 
-                wfp1.reset_crawl_depth()
-                wfp2.reset_crawl_depth()
+                comparison: int = wfp1.word_comparison(wfp2)
 
-            if wfp1.i % 50000 < 1:
-                print(wfp1.i, " complete.")
+                if not wfp1.update_comparisons(wfp2, comparison):
 
-        table = {
+                    while wfp1.crawl_depth <= CRAWL_ITERATIONS:
+                        if wfp1.crawl(wfp2):
+                            break
+                        elif wfp2.crawl(wfp1):
+                            break
+                        elif wfp1.crawl(wfp2, try_again=True):
+                            break
+                        elif wfp2.crawl(wfp1, try_again=True):
+                            break
+                        wfp1.crawl_depth += 1
+                        wfp2.crawl_depth += 1
+
+                    else:
+                        wfp1.add_row(wfp2)
+                        # print("ERROR", wfp1.crawl_dist, wfp1.i, wfp1.word(), wfp2.i, wfp2.word())
+                        # return table
+
+                    wfp1.reset_crawl_depth()
+                    wfp2.reset_crawl_depth()
+
+                if len(wfp1.words_output) % 50000 < 1:
+                    print(len(wfp1.words_output), " complete.")
+
+            except Exception as e:
+                # print(wfp1.word(), wfp2.word())
+                break
+
+    def get_WFP_comparisons(self, wfp1: WordFileParser, wfp2: WordFileParser) -> tuple:
+
+        try:
+            #  TODO: allow for only book, or only chapters, etc. 
+            for book, chapter_data in wfp1.corpus_dict.items():
+                for chapter, verse_data in chapter_data.items():
+                    for verse, word_data in verse_data.items():
+                        wfp1.set_current_verse(book, chapter, verse)
+                        wfp2.set_current_verse(book, chapter, verse)
+                        self.__get_comparisons(wfp1, wfp2)
+
+        except AttributeError:
+
+            self.__get_comparisons(wfp1, wfp2)
+        
+        table: dict = {
             f"{wfp1.name}Id": wfp1.ids_output,
             f"{wfp1.name}Text": wfp1.words_output,
             f"{wfp2.name}Text": wfp2.words_output,
@@ -208,18 +365,20 @@ class FileComparisons:
             "case": wfp2.cases_output,
         }
 
-        write_file = f"{wfp1.name}-to-{wfp2.name}-comparison.csv"
-        save_path = os.path.join(self.dest_path, write_file)
-        df = pd.DataFrame(table, dtype=str)
+        write_file: str = f"{wfp1.name}-to-{wfp2.name}-comparison.csv"
+        save_path: str = os.path.join(self.dest_path, write_file)
+        df: pd.DataFrame = pd.DataFrame(table, dtype=str)
 
         return df, save_path
 
     # compare_both compares wfp1 to wfp2, then compares the result to wfp2 to wfp1.
-    def write_WFP_comparisons(self, wfp1:WordFileParser, wfp2:WordFileParser, compare_both:bool=False):
-        
+    def write_WFP_comparisons(
+        self, wfp1: WordFileParser, wfp2: WordFileParser, compare_both: bool = False
+    ) -> None:
+
         df, save_path = self.get_WFP_comparisons(wfp1, wfp2)
         print("loading cases dictionary.")
-        cases_dict = self.get_cases_dict(df)
+        cases_dict: dict = self.get_cases_dict(df)
 
         if not compare_both:
 
@@ -227,95 +386,116 @@ class FileComparisons:
 
         else:
 
-            print(save_path.split('/')[-1] + " comparison complete.")
-
+            print(save_path.split("/")[-1] + " comparison complete.")
+            for wfp in [wfp1, wfp2]:
+                wfp.reset_values()
             df2, save_path2 = self.get_WFP_comparisons(wfp2, wfp1)
-            cases_dict2 = self.get_cases_dict(df2)
+            cases_dict2: dict = self.get_cases_dict(df2)
+            # Check if the counts differ for any of the cases. 
+            if [v['count'] for v in cases_dict.values()] != [v['count'] for v in cases_dict2.values()]:
+                self.write_comparison(df2, save_path2, cases_dict2)
 
-            if cases_dict != cases_dict2:
-                self.write_comparison(df, save_path2, cases_dict2)
-            
             self.write_comparison(df, save_path, cases_dict)
 
+    # Write the alignment and cases files. 
+    def write_comparison(self, df: pd.DataFrame, save_path: str, cases_dict: dict):
 
+        df.to_csv(save_path, encoding="utf-8", index=False)
 
-    def write_comparison(self, df:pd.DataFrame, save_path:str, cases_dict:dict):
+        with open(save_path + ".json", "w", encoding="utf-8") as jsonfile:
+            json.dump(cases_dict, jsonfile, ensure_ascii=False, indent=4)
 
-        df.to_csv(save_path, encoding='utf-8', index=False)
+    # Get all the mismatch cases as a dictionary. 
+    def get_cases_dict(self, df: pd.DataFrame) -> dict:
 
-        with open(save_path + '.json', "w", encoding='utf-8') as jsonfile:
-            json.dump(cases_dict, jsonfile, ensure_ascii=False)
-
-
-    def get_cases_dict(self, df:pd.DataFrame):
-        
-        df = df.astype({'case':'int'})
-        cases_dict = {}
+        df: pd.DataFrame = df.astype({"case": "int"})
+        cases_dict: dict = {}
 
         for case, definition in DIFF_CASES_DEF.items():
-            
-            if case in (0,1):
-                count = int(df['case'].value_counts()[case])
-                cases_dict[case] = {
-                    'definition': definition,
-                    'count': count,
+
+            # For words that match, only collect the count data. 
+            if case in (0, 1):
+                count: int = int(df["case"].value_counts()[case])
+                cases_dict[case]: dict = {
+                    "definition": definition,
+                    "count": count,
                 }
                 continue
 
-            diff_text = {}
+            diff_text: dict = {}
 
-            case_df = df.loc[df['case'] == case]
-            count = case_df.shape[0]
-            cases_dict[case] = {
-                'definition': definition,
-                'count': count,
+            case_df: df.DataFrame = df.loc[df["case"] == case]
+            count: int = case_df.shape[0]
+            cases_dict[case]: dict = {
+                "definition": definition,
+                "count": count,
             }
-            
-            for word1, word2 in zip(case_df[case_df.columns[1]], case_df[case_df.columns[2]]):
-               
-                words = sorted( [heb_stripped(word1), heb_stripped(word2)] )
-                comp = f"({words[0]},{words[1]})"
+            # Compare all the words that are not matches. 
+            for word1, word2 in zip(
+                case_df[case_df.columns[1]], case_df[case_df.columns[2]]
+            ):
+
+                words: list[str] = sorted([text_normalized(word1), text_normalized(word2)])
+                comp: str = f"({words[0]},{words[1]})"
 
                 if comp not in diff_text:
-                    diff_text[comp] = 1
+                    diff_text[comp]: int = 1
 
                 else:
                     diff_text[comp] += 1
 
             if len(diff_text) > 0:
-                cases_dict[case]['differences'] = diff_text
+                # Sort by frequency of mismatch.
+                diff_text: dict = sorted(diff_text.items(), key=lambda x: x[1], reverse=True)
+                cases_dict[case]["differences"]: dict = diff_text
 
         return cases_dict
 
 
-from constants.data import STEP_CORPUS, CLEAR_CORPUS, OHB_CORPUS
-step_wfp = WordFileParser(
-    file=os.path.join(PATHS.STEP_DATA_DEST_FULL_PATH, STEP_CORPUS.WRITE_FILE_FORMATTED), 
-    word_col=STEP_CORPUS.TEXT_ATTR, 
-    id_col=STEP_CORPUS.ID_ATTR, 
-    name='step')
 
-macula_wfp = WordFileParser(
-    file=os.path.join(PATHS.CLEAR_MACULA_HEBREW_DEST_FULL_PATH, CLEAR_CORPUS.WRITE_FILE_UNFORMATTED), 
-    word_col=CLEAR_CORPUS.TEXT_ATTR, 
-    id_col=CLEAR_CORPUS.ID_ATTR, 
-    name='macula')
+# ************************************************************************************************
 
-w = '/Users/sethhowell/Desktop/Hebrew-Literacy-App/hebrew-data/data-staging/word.csv'
-etcbc_wfp = WordFileParser(
-    file=w, 
-    word_col='text', 
-    id_col='wordId', 
-    name='etcbc')
+from constants.data import STEP_CORPUS, CLEAR_CORPUS, OHB_CORPUS, ETCBC_CORPUS
+
+# step_wfp = WordFileParser(
+#     file=os.path.join(PATHS.STEP_DATA_DEST_FULL_PATH, STEP_CORPUS.WRITE_FILE_FORMATTED),
+#     word_col=STEP_CORPUS.TEXT_ATTR,
+#     id_col=STEP_CORPUS.ID_ATTR,
+#     name="step",
+# )
+
+macula_wfp = WordFileSectionalParser(
+    file=os.path.join(
+        PATHS.CLEAR_MACULA_HEBREW_DEST_FULL_PATH, CLEAR_CORPUS.WRITE_FILE_FORMATTED
+    ),
+    name="macula",
+    word_col=CLEAR_CORPUS.TEXT_ATTR,
+    id_col=CLEAR_CORPUS.ID_ATTR,
+    book_col='book',
+    chapter_col='chapter',
+    verse_col='verse',
+)
+
+print('1 loaded')
+
+etcbc_wfp = WordFileSectionalParser(
+    file=os.path.join(
+        PATHS.ETCBC_DATA_DEST_FULL_PATH, 'BHSA-words-2021.tsv'
+    ),
+    name="etcbc",
+    word_col=ETCBC_CORPUS.TEXT_ATTR,
+    id_col=ETCBC_CORPUS.ID_ATTR,
+    book_col=ETCBC_CORPUS.BOOK_ATTR,
+    chapter_col=ETCBC_CORPUS.CHAPTER_ATTR,
+    verse_col=ETCBC_CORPUS.VERSE_ATTR,
+)
+
+print('2 loaded')
+
+
 fc = FileComparisons()
 
-for wfps in [(etcbc_wfp, macula_wfp)]:
-    wfp1, wfp2 = wfps 
-    fc.write_WFP_comparisons(wfp1, wfp2, True)
+for wfps in [(macula_wfp, etcbc_wfp)]:
 
-
-
-
-
-
-
+    wfp1, wfp2 = wfps
+    fc.write_WFP_comparisons(wfp1, wfp2, compare_both=True)

@@ -14,6 +14,7 @@ COMPARISONS_DIR = 'comparisons'
 STEP_DIR = 'STEP-Bible'
 CLEAR_DIR = 'Clear-Bible'
 WONG_DIR = 'Eliran-Wong'
+ETCBC_DIR = 'ETCBC'
 
 # Data Source Relative Paths
 STEP_CORE_SOURCE_DATA_PATH = 'step/step-core-data/src/main/resources/com/tyndalehouse/step/core/data/create'
@@ -49,3 +50,6 @@ class PATHS:
     WONG_OHB_SOURCE_DATA_FULL_PATH = os.path.join(HEBREW_DATA_SOURCES_FULL_PATH, WONG_DIR, WONG_OHB_SOURCE_DATA_PATH)
 
     WONG_OHB_DEST_FULL_PATH = os.path.join(HEBREW_DATA_DATA_FULL_PATH, WONG_DIR)
+
+    # ETCBC Paths
+    ETCBC_DATA_DEST_FULL_PATH = os.path.join(HEBREW_DATA_DATA_FULL_PATH, ETCBC_DIR)
