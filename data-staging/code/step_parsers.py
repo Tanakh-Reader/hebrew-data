@@ -81,7 +81,7 @@ class StepBibleCorpusProcessor:
 
 
 
-    def write_corpora_data_formatted(self, with_qere:bool=True):
+    def write_corpora_data_formatted(self, with_qere:bool=True) -> str:
 
         rows = []   
         books_visited = set()
@@ -174,6 +174,45 @@ class StepBibleCorpusProcessor:
         # Write the data.
         df = pd.DataFrame(rows, dtype=str)
         write_file = STEP_CORPUS.WRITE_FILE_FORMATTED if with_qere else STEP_CORPUS.WRITE_FILE_FORMATTED_WITHOUT_QERE
+        save_path = os.path.join(self.dest_path, write_file)
+        df.to_csv(save_path, sep='\t', encoding='utf-8', index=False)
+
+        return save_path
+
+    def write_corpora_data_for_alignment(self) -> str:
+
+        rows: list = []   
+        source_file_path: str = os.path.join(self.dest_path, STEP_CORPUS.WRITE_FILE_FORMATTED)
+        
+        if STEP_CORPUS.WRITE_FILE_FORMATTED not in os.listdir(self.dest_path):
+            self.write_corpora_data_formatted()
+
+        with open(source_file_path, 'r') as csv_file:
+            
+            csv_rows = list( csv.reader(csv_file, delimiter='\t') )            
+
+            header: list = ['id', 'text', 'book', 'chapter', 'verse']     
+
+            for row_index, row in enumerate(csv_rows[1:]):
+                # references formatted like: 1Ki.4.7-17.K
+                ref: str = row[1]
+                # Is ketiv or qere
+                id: str = row[0]
+                if ref[-1].upper() in ['K','Q']:
+                    id: str = id + ref[-1].lower()
+                    ref = ref[:-2]
+
+                book, chapter, verse_data = ref.split('.')
+                verse, position = verse_data.split('-')
+                
+                row: list = [id, row[3], book.upper(), chapter, verse]
+                rows.append(row)
+
+
+        # Write the data.
+        df = pd.DataFrame(rows, dtype=str)
+        df.columns = header
+        write_file = STEP_CORPUS.WRITE_FILE_ALIGNMENT
         save_path = os.path.join(self.dest_path, write_file)
         df.to_csv(save_path, sep='\t', encoding='utf-8', index=False)
 
@@ -309,3 +348,6 @@ class StepBibleLexiconProcessor:
         df.to_csv(save_path, sep='\t', encoding='utf-8', index=False)
 
         return save_path
+
+stepParser = StepBibleCorpusProcessor() 
+stepParser.write_corpora_data_for_alignment()

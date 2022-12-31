@@ -38,6 +38,9 @@ class STEP_CORPUS:
     WRITE_FILE_FORMATTED_WITHOUT_QERE = 'translators-hebrew-OT-no-qere.tsv'
     WRITE_FILE_FORMATTED = 'translators-hebrew-OT.tsv'
 
+    WRITE_FILE_ALIGNMENT = 'translators-hebrew-OT-for-alignment.tsv'
+
+
 
 class STEP_TBESH:
 

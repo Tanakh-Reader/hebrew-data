@@ -68,7 +68,7 @@ class ETCBCCorpusParser:
                 if prs not in ('absent', 'n/a'):
                     modified_row = row.copy()
                     modified_row[0] = modified_row[0] + 's'
-                    modified_row[1] = ''
+                    modified_row[1] = 'sfx'
                     rows.append(modified_row)
 
         # Write the data.
