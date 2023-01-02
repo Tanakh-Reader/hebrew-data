@@ -65,11 +65,11 @@ class ETCBCCorpusParser:
                 book = {'EZE':'EZK','JUD':'JDG','SON':'SNG','JOE':'JOL','NAH':'NAM'}[book] if book in ('EZE','JUD','SON','JOE','NAH') else book
                 row[3] = book
                 rows.append(row)
-                if prs not in ('absent', 'n/a'):
-                    modified_row = row.copy()
-                    modified_row[0] = modified_row[0] + 's'
-                    modified_row[1] = 'sfx'
-                    rows.append(modified_row)
+                # if prs not in ('absent', 'n/a'):
+                #     modified_row = row.copy()
+                #     modified_row[0] = modified_row[0] + 's'
+                #     modified_row[1] = ''
+                #     rows.append(modified_row)
 
         # Write the data.
         df = pd.DataFrame(rows, dtype=str)

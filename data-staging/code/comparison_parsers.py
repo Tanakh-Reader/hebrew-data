@@ -3,6 +3,7 @@ import unicodedata
 import os
 import json
 from constants.paths import PATHS
+from enum import Enum
 
 # Normalizes text input into its consonantal form.
 # E.g., ἡμῖν becomes ημιν.
@@ -12,10 +13,20 @@ def text_normalized(word):
 
     return "".join([c for c in normalized if not unicodedata.combining(c)])
 
+class Case(Enum):
+    SAME_TEXT = 0
+    SAME_CONS = 1
+    SAME_ROOT = 2
+    IMPLIED_HE = 3
+    DIF_AFFIX = 4
+    DIF_WORD = 5
+    MISC = 6
+
+CASE_VALUES = set(item.value for item in Case)
 
 # Note that some of cases 2-4 are Qere vs Ketiv related.
 # Note, cases like (2) "אֲ֝דֹנָ֗" vs "אֲ֝דֹנָ֗י" are often followed by (4) "י" vs "NA"
-DIFF_CASES_DEF = {
+CASES_DEFINITIONS = {
     0: "Identical pointed text",
     1: "Identical consonantal text, different markings",
     2: 'Likely the same base word, different affix parsing, aligned (e.g., "עַמּוּדָ֣י" + "ו" vs "עַמְדּ" + "וּ") or misaligned (e.g., "אֲ֝דֹנָ֗" + "י" vs "אֲ֝דֹנָ֗י")',
@@ -116,11 +127,14 @@ class WordFileParser:
         
     # Check if two words are the same.
     # For use in the comparison method. 
-    def is_same_word_dif_markings(self, word_a_cons: str, word_b_cons: str) -> int:
+    def same_word_dif_markings(self, word_a: str, word_b: str) -> int:
+
+        word_a_cons = text_normalized(word_a)
+        word_b_cons = text_normalized(word_b)
         
         # Consonantal match, e.g., 'עַסּוֹתֶ֣ם' vs 'עַסֹּותֶ֣ם'.
         if word_a_cons == word_b_cons:
-            return 1
+            return Case.SAME_CONS.value
 
         # E.g., the same word with a different consonant @010140080091 'צביים' vs. 'צבוים'.
         elif (
@@ -129,29 +143,74 @@ class WordFileParser:
             and word_a_cons[0] == word_b_cons[0]
         ):
             if (
-                # E.g., the same word with a different consonant @010140080091 'צביים' vs. 'צבוים'
                 word_a_cons[-1] == word_b_cons[-1] 
-                or len(word_a_cons) == len(word_b_cons)
+                and abs( len(word_a_cons) - len(word_b_cons) ) == 1
+                # or len(word_a_cons) == len(word_b_cons)
             ):
                 # TODO change this value. 
-                return 1.1
+                return Case.SAME_CONS.value
 
         else:
-            return 0
+            return False
 
     # Check if the next two words are the same.
     def next_words_match(self, other_wfp: "WordFileParser", other_index: int) -> bool:
 
         if (not self.at_end_of_words(other_wfp)
-            and self.is_same_word_dif_markings(
-                text_normalized( self.word(self.i + 1) ), 
-                text_normalized( other_wfp.word(other_index + 1) )
+
+            and self.same_word_dif_markings(
+                self.word(self.i + 1),
+                other_wfp.word(other_index + 1)
             ) != 0
         ):
-            return True
+            return Case.DIF_WORD.value
 
         else:
             return False
+
+    # An instance where one dataset includes the implied article, but the other doesn't. 
+    def implied_article_insance(self, 
+        other_wfp: "WordFileParser", 
+        other_index: int
+    ) -> bool:
+
+        try:
+            word_a_cons: str = text_normalized(self.word())
+            word_b_cons: str = text_normalized(other_wfp.word(other_index))
+
+            if (
+                len(word_a_cons) == 1 # signifies a preposition.
+                and word_a_cons == word_b_cons
+                and other_wfp.word(other_index + 1) == ''
+                # TODO hmmm
+                and self.word(self.i + 1) != ''
+            ):
+                return Case.IMPLIED_HE.value
+
+            else:
+                return False
+
+        except IndexError:
+            return False
+
+    # Tries to locate and instance where a word is split because of an affix.
+    # Or an implied article. 
+    def dif_word_split_instance(self, other_wfp: "WordFileParser", other_index: int):
+
+        try:
+            word_a_cons: str = text_normalized( self.word() )
+            word_b_cons: str = text_normalized( other_wfp.word(other_index) )
+            next_word_b: str = text_normalized( other_wfp.word(other_index + 1) )
+            
+            if word_b_cons in word_a_cons and next_word_b in word_a_cons:
+                return Case.DIF_AFFIX.value
+
+            else: 
+                return False
+
+        except IndexError:
+            return False
+            
 
     # Compare the word text in the current WFP instance to that of another.
     def word_comparison(self, other_wfp: "WordFileParser", new_index: int = 0) -> int:
@@ -159,6 +218,9 @@ class WordFileParser:
         other_index: int = max(other_wfp.i, new_index)
         word_a: str = self.word()
         word_b: str = other_wfp.word(other_index)
+
+        if self.implied_article_insance(other_wfp, other_index):
+            return 2.1
 
         # Case 0 -- exact match, e.g., 'רְשָׁעִ֔ים' vs 'רְשָׁעִ֔ים'.
         if word_a == word_b:
@@ -175,37 +237,45 @@ class WordFileParser:
                 return 1
 
             # Check if one of the words is an empty string.
-            elif 0 in [len(word_a_cons), len(word_b_cons)]:
+            # elif 0 in [len(word_a_cons), len(word_b_cons)]:
                 # E.g. an implied article. 
                 # 010010050052,לַ,לַ,o010010050052
                 # 010010050053,חֹ֖שֶׁךְ,,o010010050052ה
-                return 4
+                # return 4
 
             # Check if the words are greater than length 1 and share the first consonant.
-            elif (
-                len(word_a_cons) > 1
-                and len(word_b_cons) > 1
-                and word_a_cons[0] == word_b_cons[0]
-            ):
-                # Check if the words are equal length or share the last consonant.
-                word_comparison: int = self.is_same_word_dif_markings(word_a_cons, word_b_cons)
+            # elif self.dif_word_split_instance(other_wfp, other_index):
+            #     return 2
+            # elif (
+            #     len(word_a_cons) > 1
+            #     and len(word_b_cons) > 1
+            #     and word_a_cons[0] == word_b_cons[0]
+            # ):
+            #     # Check if the words are equal length or share the last consonant.
+            #     word_comparison: float = self.is_same_word_dif_markings(word_a_cons, word_b_cons)
 
-                if word_comparison != 0:
-                    # E.g., the same word with a different consonant @010140080091 'צביים' vs. 'צבוים' 
-                    return word_comparison
+            #     if word_comparison != 0:
+            #         # E.g., the same word with a different consonant @010140080091 'צביים' vs. 'צבוים' 
+            #         return word_comparison
 
                 # Share first consonant, but different length and last consonant.
-                else:
+                # else:
                     # E.g., 
                     # 050070090141,מִצְוֹת,מִצְוֺתָ֖י,o050070090151
                     # 050070090142,וֹ,ו,o050070090152
-                    return 2
+                    # return 2
 
             # Check if the next words match. 
-            elif self.next_words_match(other_wfp, other_index):
-                # A meaningful difference, e.g., in a ketiv reading:
-                # 010130030122,ה,וֹ֙,o010130030132 -- suffix difference. 
-                return 3
+            elif self.dif_word_split_instance(other_wfp, other_index):
+                return 2
+
+            # elif self.next_words_match(other_wfp, other_index):
+            #     # A meaningful difference, e.g., in a ketiv reading:
+            #     # 010130030122,ה,וֹ֙,o010130030132 -- suffix difference. 
+            #     return 3
+
+            # elif self.dif_word_split_instance(other_wfp, other_index):
+            #     return 2
 
             else:
                 return 4
@@ -217,11 +287,23 @@ class WordFileParser:
         depth: int = 0
         runner_index: int = other_wfp.i + 1
 
+        word_comparison: float = self.same_word_dif_markings(self.word(), other_wfp.word())
+        if word_comparison != 0:
+            self.update_comparisons(other_wfp, word_comparison, other_wfp.i)
+            return True
+
+
+
+        # TODO WTF is this?
+        elif self.next_words_match(other_wfp, other_wfp.i):
+            self.update_comparisons(other_wfp, 3, other_wfp.i)
+            return True
+
         while depth < self.crawl_depth and runner_index < other_wfp.length:
 
             comparison: int = self.word_comparison(other_wfp, new_index=runner_index)
-
-            if comparison == 0 or (try_again and comparison in range(2, 5)):
+            # TODO explain try_again.
+            if comparison < 2 or (try_again and comparison in range(2, 5)):
                 self.update_comparisons(other_wfp, comparison, runner_index)
                 return True
 
@@ -230,24 +312,40 @@ class WordFileParser:
 
         return False
 
+    # First, realign the two WFPs to the new_index if one has gone ahead. Then,
+    # update the output lists with the comparison value and increment the indices.
+    # If there's not a meaningul comparison, return False.
     def update_comparisons(
-        self, other_wfp: "WordFileParser", comp: int, new_index: int = 0
+        self, other_wfp: "WordFileParser", comparison: int, new_index: int = 0
     ) -> bool:
 
+        # While the current WFP index is less than the other WFP index, add rows to the output.
         while other_wfp.i < new_index:
             other_wfp.update_output_lists([other_wfp.word(), other_wfp.id(), 4])
-            self.update_output_lists(["NA", self.id(), 4])
+            self.update_output_lists(["NA", '', 4])
             other_wfp.i += 1
 
-        if comp in range(4):
+        if comparison in [2,2.1]:
+            other_wfp.update_output_lists([other_wfp.word(), other_wfp.id(), comparison])
+            self.update_output_lists([self.word(), self.id(), comparison])
+            # self.i += 1
+            other_wfp.i += 1
+            other_wfp.update_output_lists([other_wfp.word(), other_wfp.id(), comparison])
+            self.update_output_lists(['', self.id() + 'a', comparison])
+            other_wfp.i += 1
+            self.i += 1
 
-            other_wfp.update_output_lists([other_wfp.word(), other_wfp.id(), comp])
-            self.update_output_lists([self.word(), self.id(), comp])
+            return True
+
+        elif comparison < 4:
+            other_wfp.update_output_lists([other_wfp.word(), other_wfp.id(), comparison])
+            self.update_output_lists([self.word(), self.id(), comparison])
             self.i += 1
             other_wfp.i += 1
 
             return True
 
+        # If the comparison difference is significant, return False.
         else:
             return False
 
@@ -362,9 +460,9 @@ class WordFileSectionalParser(WordFileParser):
     def id(self, i: int = None) -> str:
 
         if i:
-            return self.words[i][0]
+            return 'o' + self.words[i][0]
 
-        return self.words[self.i][0]
+        return 'o' + self.words[self.i][0]
 
 
 # ************************************************************************************************
@@ -379,10 +477,12 @@ class FileComparisons:
         while wfp1.i < wfp1.length and wfp2.i < wfp2.length:
 
             try:
+                # First, get the comparison at the current index of each WFP. 
+                comparison_a: int = wfp1.word_comparison(wfp2)
+                comparison_b: int = wfp2.word_comparison(wfp1)
 
-                comparison: int = wfp1.word_comparison(wfp2)
-
-                if not wfp1.update_comparisons(wfp2, comparison):
+                if (not wfp1.update_comparisons(wfp2, comparison_a)
+                and not wfp2.update_comparisons(wfp1, comparison_b)):
 
                     while wfp1.crawl_depth <= CRAWL_ITERATIONS:
                         if wfp1.crawl(wfp2):
@@ -426,6 +526,8 @@ class FileComparisons:
 
             self.__get_comparisons(wfp1, wfp2)
 
+        
+
         table: dict = {
             f"{wfp1.name}Id": wfp1.ids_output,
             f"{wfp1.name}Text": wfp1.words_output,
@@ -433,6 +535,18 @@ class FileComparisons:
             f"{wfp2.name}Id": wfp2.ids_output,
             "case": wfp2.cases_output,
         }
+
+        def pad_dict_list(dict_list, padel):
+            lmax = 0
+            for lname in dict_list.keys():
+                lmax = max(lmax, len(dict_list[lname]))
+            for lname in dict_list.keys():
+                ll = len(dict_list[lname])
+                if  ll < lmax:
+                    dict_list[lname] += [padel] * (lmax - ll)
+            return dict_list
+
+        table = pad_dict_list(table, "_")
 
         write_file: str = f"{wfp1.name}-to-{wfp2.name}-comparison.csv"
         save_path: str = os.path.join(self.dest_path, write_file)
@@ -479,10 +593,10 @@ class FileComparisons:
     # Get all the mismatch cases as a dictionary.
     def get_cases_dict(self, df: pd.DataFrame) -> dict:
 
-        df: pd.DataFrame = df.astype({"case": "int"})
+        df: pd.DataFrame = df.astype({"case": "float"})
         cases_dict: dict = {}
 
-        for case, definition in DIFF_CASES_DEF.items():
+        for case, definition in CASES_DEFINITIONS.items():
 
             # For words that match, only collect the count data.
             if case in (0, 1):
@@ -495,7 +609,7 @@ class FileComparisons:
 
             diff_text: dict = {}
 
-            case_df: df.DataFrame = df.loc[df["case"] == case]
+            case_df: pd.DataFrame = df.loc[df["case"] == case]
             count: int = case_df.shape[0]
             cases_dict[case]: dict = {
                 "definition": definition,
@@ -517,7 +631,7 @@ class FileComparisons:
                 else:
                     diff_text[comp] += 1
 
-            if len(diff_text) > 0:
+            if len(diff_text) > 1: # was > 0
                 # Sort by frequency of mismatch.
                 diff_text: dict = sorted(
                     diff_text.items(), key=lambda x: x[1], reverse=True
@@ -556,22 +670,26 @@ macula_wfp = WordFileSectionalParser(
 
 print("1 loaded")
 
-# etcbc_wfp = WordFileSectionalParser(
-#     file=os.path.join(PATHS.ETCBC_DATA_DEST_FULL_PATH, "BHSA-words-2021.tsv"),
-#     name="etcbc",
-#     word_col=ETCBC_CORPUS.TEXT_ATTR,
-#     id_col=ETCBC_CORPUS.ID_ATTR,
-#     book_col=ETCBC_CORPUS.BOOK_ATTR,
-#     chapter_col=ETCBC_CORPUS.CHAPTER_ATTR,
-#     verse_col=ETCBC_CORPUS.VERSE_ATTR,
-# )
+etcbc_wfp = WordFileSectionalParser(
+    file=os.path.join(PATHS.ETCBC_DATA_DEST_FULL_PATH, "BHSA-words-2021.tsv"),
+    name="etcbc",
+    word_col=ETCBC_CORPUS.TEXT_ATTR,
+    id_col=ETCBC_CORPUS.ID_ATTR,
+    book_col=ETCBC_CORPUS.BOOK_ATTR,
+    chapter_col=ETCBC_CORPUS.CHAPTER_ATTR,
+    verse_col=ETCBC_CORPUS.VERSE_ATTR,
+)
 
-# print("2 loaded")
+print("2 loaded")
 
 
 fc = FileComparisons()
 
-for wfps in [(macula_wfp, step_wfp)]:
+# for wfps in [(macula_wfp, etcbc_wfp)]:
+
+#     wfp1, wfp2 = wfps
+#     fc.write_WFP_comparisons(wfp1, wfp2, compare_both=False)
+for wfps in [(step_wfp, macula_wfp)]:
 
     wfp1, wfp2 = wfps
     fc.write_WFP_comparisons(wfp1, wfp2, compare_both=True)
