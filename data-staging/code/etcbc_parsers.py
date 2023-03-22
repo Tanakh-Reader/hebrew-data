@@ -57,7 +57,7 @@ class ETCBCCorpusParser:
 
         with open(source_file_path, 'r') as csv_file:
             
-            csv_rows = list( csv.reader(csv_file, delimiter='\t') )     
+            csv_rows = list( csv.reader(csv_file, delimiter='\t') )
 
             for row_index, row in enumerate(csv_rows[1:]):
                 prs = row[2]
@@ -82,6 +82,7 @@ class ETCBCCorpusParser:
 
 
 parser = ETCBCCorpusParser(version='2021')
+
 # parser.init_app()
 
-parser.write_corpus_data_formatted()
+# parser.write_corpus_data_formatted()
